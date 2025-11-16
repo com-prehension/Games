@@ -1,0 +1,2364 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>句子拼图板 · 语法博物馆探险</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 引入游戏数据 -->
+    <script src="data/characters.js"></script>
+    <script src="data/levels.js"></script>
+    <style>
+        :root {
+            --bg-1: #fff7ec;
+            --bg-2: #ffe8c8;
+            --bg-3: #ffe0f0;
+            --text-dark: #2d1f25;
+            --text-soft: #5f4b44;
+            --panel: rgba(255, 255, 255, 0.9);
+            --accent-1: #f18f01;
+            --accent-2: #ff6f91;
+            --accent-3: #6ddccf;
+            --accent-4: #6a8cfb;
+            --slot-border: rgba(0,0,0,0.08);
+            --card-radius: 22px;
+            --transition: all 0.3s ease;
+            --board-texture: linear-gradient(135deg, #f7e4c0, #f0d292);
+            --hall-color: #f18f01;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Nunito', 'Noto Sans SC', sans-serif;
+            background: radial-gradient(circle at top, rgba(255,255,255,0.8), rgba(255,255,255,0)) ,linear-gradient(135deg, var(--bg-1), var(--bg-2) 50%, var(--bg-3));
+            color: var(--text-dark);
+            min-height: 100vh;
+            padding: 10px clamp(12px, 2vw, 20px) 20px;
+            overflow-x: hidden;
+            /* 优化webview适配 */
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body::before,
+        body::after {
+            content: '';
+            position: fixed;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(250,214,164,0.55), rgba(241,143,1,0));
+            top: -80px;
+            left: -60px;
+            z-index: -2;
+            filter: blur(6px);
+        }
+
+        body::after {
+            background: radial-gradient(circle, rgba(106,140,251,0.45), rgba(106,140,251,0));
+            top: unset;
+            bottom: -80px;
+            left: unset;
+            right: -60px;
+        }
+
+        .app-shell {
+            max-width: min(1250px, 92vw);
+            margin: 0 auto;
+            position: relative;
+            /* 优化webview适配 */
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 20px);
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.7);
+            padding: 8px 18px;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            color: var(--text-soft);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        .hero h1 {
+            margin: 8px 0 6px;
+            font-size: clamp(1.8rem, 4.6vw, 2.7rem);
+            color: var(--text-dark);
+        }
+
+        .hero p {
+            margin: 0 auto;
+            max-width: 640px;
+            line-height: 1.7;
+            color: var(--text-soft);
+            font-size: 1.05rem;
+        }
+
+        .panel {
+            background: var(--panel);
+            border-radius: var(--card-radius);
+            padding: clamp(20px, 3.4vw, 34px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+            backdrop-filter: blur(10px);
+            /* 优化webview适配 */
+            flex: 1;
+        }
+
+        .panel.hidden {
+            display: none;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+        }
+
+        .primary-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 28px;
+        }
+
+        .primary-actions button {
+            flex: 1;
+            min-width: 200px;
+            border: none;
+            border-radius: 18px;
+            padding: 18px 24px;
+            background: linear-gradient(120deg, #f7b733, #fc4a1a);
+            color: #fff;
+            font-size: 1.12rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 16px 34px rgba(252,74,26,0.28);
+            transition: var(--transition);
+        }
+
+        .primary-actions button.secondary {
+            background: linear-gradient(120deg, #7f7fd5, #86a8e7);
+            box-shadow: 0 14px 30px rgba(134,168,231,0.3);
+        }
+        
+        .journey-card .secondary {
+            background: linear-gradient(120deg, #4a6fa5, #668ed1);
+            color: white;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            padding: 10px 18px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 6px 16px rgba(102,142,209,0.3);
+        }
+        
+        .journey-card .secondary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .journey-card .secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102,142,209,0.4);
+        }
+        
+        .journey-card .secondary:hover::before {
+            left: 100%;
+        }
+        
+        .journey-card .secondary:active {
+            transform: translateY(0);
+        }
+
+        .primary-actions button.ghost {
+            background: rgba(255,255,255,0.85);
+            color: var(--text-dark);
+            border: 2px dashed rgba(0,0,0,0.1);
+            box-shadow: none;
+        }
+
+        .primary-actions button:active {
+            transform: translateY(2px) scale(0.99);
+        }
+
+        .panel + .panel {
+            margin-top: 12px;
+        }
+
+        .hero-board {
+            background: rgba(255,255,255,0.92);
+            padding: clamp(20px, 3.4vw, 32px);
+            min-height: clamp(760px, 84vh, 960px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            max-width: min(1200px, 92vw);
+            margin: 0 auto;
+        }
+
+        .hero-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 18px;
+            align-items: center;
+            flex: 1;
+        }
+
+        .hero-primary h2 {
+            margin: 12px 0;
+            font-size: clamp(2.3rem, 5.4vw, 3.2rem);
+        }
+
+        .hero-eyebrow {
+            color: var(--accent-4);
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .hero-descriptor {
+            color: var(--text-soft);
+            line-height: 1.82;
+            margin-bottom: 26px;
+            font-size: 1.12rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            margin-top: 22px;
+        }
+
+        .quick-fix-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 14px 24px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .quick-fix-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .quick-fix-btn:active {
+            transform: translateY(0);
+        }
+
+        .quick-fix-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .quick-fix-btn:hover::before {
+            left: 100%;
+        }
+
+        button.ghost {
+            border: 2px dashed rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.6);
+            color: var(--text-dark);
+        }
+        
+        .journey-card .achievement-btn {
+            background: linear-gradient(120deg, #ffecd2, #fcb69f);
+            color: #d85c3b;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            padding: 10px 18px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 6px 16px rgba(252,182,159,0.3);
+        }
+        
+        .journey-card .achievement-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .journey-card .achievement-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(252,182,159,0.4);
+        }
+        
+        .journey-card .achievement-btn:hover::before {
+            left: 100%;
+        }
+        
+        .journey-card .achievement-btn:active {
+            transform: translateY(0);
+        }
+
+        .hero-highlight {
+            display: grid;
+            gap: 12px;
+            font-size: 0.9rem;
+        }
+
+        .highlight-card {
+            border-radius: 18px;
+            padding: 16px;
+            background: rgba(255,255,255,0.8);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+        }
+
+        .highlight-card h4 {
+            margin: 0 0 6px;
+        }
+
+        .hero-badges {
+            margin-top: 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .badge-chip {
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.05);
+            font-size: 0.85rem;
+            color: rgba(0,0,0,0.7);
+        }
+
+        .hall-overview {
+            margin-top: 18px;
+            padding: 16px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.75);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+        }
+
+        .hall-overview h4 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+        }
+
+        .hall-overview ul {
+            margin: 0;
+            padding-left: 18px;
+            color: var(--text-soft);
+            font-size: 0.9rem;
+        }
+
+        .journey-panel {
+            background: rgba(255,255,255,0.92);
+            padding-top: 10px;
+        }
+
+        .journey-stepper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .journey-step {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            background: rgba(0,0,0,0.05);
+            color: rgba(0,0,0,0.65);
+            font-weight: 600;
+        }
+
+        .journey-step.active {
+            background: linear-gradient(120deg, #ff9a62, #ff5c8d);
+            color: #fff;
+        }
+
+        .journey-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .journey-card {
+            background: rgba(255,255,255,0.85);
+            border-radius: 22px;
+            padding: 18px;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+        }
+
+        .journey-card h3 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .journey-card p {
+            margin: 0;
+            color: var(--text-soft);
+            font-size: 0.88rem;
+        }
+
+        .journey-card.cta {
+            background: linear-gradient(145deg, #f9c0a2, #f6a2d2);
+            color: #4a1f2e;
+            box-shadow: 0 15px 35px rgba(243, 136, 136, 0.2);
+        }
+
+        .journey-card.cta button {
+            width: 100%;
+        }
+
+        .journey-tip {
+            margin: 0;
+            font-size: 0.9rem;
+            color: rgba(0,0,0,0.7);
+        }
+
+        .journey-preview {
+            padding: 14px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.6);
+            line-height: 1.4;
+        }
+
+        .cta-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .cta-links button {
+            flex: 1;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+
+        .card-grid.compact-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        .character-card,
+        .hall-card {
+            border-radius: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 20px;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .character-card:hover,
+        .hall-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        .character-card.selected {
+            border-color: var(--accent-3);
+            box-shadow: 0 10px 35px rgba(109,220,207,0.35);
+        }
+
+        .character-emoji {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .character-role {
+            font-weight: 700;
+            color: var(--text-soft);
+            margin-bottom: 6px;
+        }
+
+        .ability-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            background: rgba(109,220,207,0.12);
+            color: #1d4d4f;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .character-desc {
+            margin: 0;
+            color: #7f6f66;
+            line-height: 1.4;
+        }
+
+        .perk-desc {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            color: rgba(0,0,0,0.65);
+        }
+
+        .hall-card {
+            background: rgba(255,255,255,0.92);
+            border-radius: 22px;
+            padding: 22px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hall-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.1;
+            background-image: radial-gradient(circle at 20% 20%, #fff 10%, transparent 40%);
+        }
+
+        .hall-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hall-card .hall-top {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        .hall-crest {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .hall-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            font-size: 1.8rem;
+            background: rgba(255,255,255,0.35);
+        }
+
+        .hall-relic {
+            margin: 2px 0 0;
+            font-size: 0.85rem;
+            color: rgba(0,0,0,0.65);
+        }
+
+        .hall-chip {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            background: rgba(0,0,0,0.07);
+        }
+
+        .hall-story {
+            color: var(--text-soft);
+            margin: 0 0 10px;
+            line-height: 1.5;
+        }
+
+        .hall-tags {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 0;
+            margin: 0 0 8px;
+        }
+
+        .hall-tags li {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            background: rgba(255,255,255,0.5);
+            color: rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.4);
+        }
+
+        .hall-guide {
+            color: rgba(0,0,0,0.7);
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        .hall-card.selected {
+            border-color: var(--accent-4);
+            box-shadow: 0 10px 25px rgba(106,140,251,0.3);
+        }
+
+        .hall-progress {
+            font-size: 0.85rem;
+            color: var(--text-soft);
+        }
+
+        .game-hud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .hud-block {
+            background: rgba(255,255,255,0.85);
+            padding: 12px 18px;
+            border-radius: 18px;
+            flex: 1;
+            min-width: 210px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.08);
+            position: relative;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar span {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 12%;
+            border-radius: 999px;
+            background: linear-gradient(120deg, var(--hall-color), var(--accent-3));
+            transition: width 0.4s ease;
+        }
+
+        .buddy-panel {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .buddy-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            background: rgba(0,0,0,0.05);
+            display: grid;
+            place-items: center;
+            font-size: 1.8rem;
+        }
+
+        .buddy-text {
+            flex: 1;
+        }
+
+        .buddy-name {
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .buddy-message {
+            margin: 2px 0 0;
+            color: var(--text-soft);
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .buddy-note {
+            margin: 4px 0 0;
+            font-size: 0.85rem;
+            color: rgba(0,0,0,0.6);
+        }
+
+        .game-stage {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            /* 优化webview适配 */
+            min-height: 500px;
+            flex: 1;
+        }
+
+        .pieces-panel,
+        .board-panel {
+            background: rgba(255,255,255,0.92);
+            border-radius: 24px;
+            padding: 18px;
+            /* 优化webview适配 */
+            min-height: 320px;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 单独调整碎片区高度 */
+        .pieces-panel {
+            max-height: 350px;
+        }
+
+        .pieces-panel h3,
+        .board-panel h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+
+        .fragment-legend {
+            margin: -6px 0 12px;
+            font-size: 0.85rem;
+            color: rgba(0,0,0,0.6);
+            background: rgba(201,195,255,0.16);
+            border: 1px dashed rgba(106,125,224,0.4);
+            padding: 8px 12px;
+            border-radius: 12px;
+        }
+
+        .fragment-legend.hidden {
+            display: none;
+        }
+        .pieces-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            /* 优化webview适配 */
+            max-height: 260px;
+            overflow-y: auto;
+        }
+
+        .fragment-card {
+            border: 2px solid rgba(0,0,0,0.06);
+            border-radius: 16px;
+            padding: 14px 12px;
+            background: rgba(255,255,255,0.85);
+            font-weight: 700;
+            font-size: 1rem;
+            text-align: center;
+            cursor: grab;
+            transition: box-shadow 0.25s ease, transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+            position: relative;
+            touch-action: none;
+            /* 优化webview适配 */
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fragment-card[data-role="主语"] {
+            border-color: #6a8cfb;
+            background: rgba(106,140,251,0.08);
+        }
+
+        .fragment-card[data-role="谓语"] {
+            border-color: #6ddccf;
+            background: rgba(109,220,207,0.1);
+        }
+
+        .fragment-card[data-role="宾语"] {
+            border-color: #ffd972;
+            background: rgba(255,217,114,0.16);
+        }
+
+        .fragment-card[data-role="状语"] {
+            border-color: #fb8da0;
+            background: rgba(251,141,160,0.12);
+        }
+
+        .fragment-card[data-role="从句"] {
+            border-color: #c9c3ff;
+            background: rgba(201,195,255,0.15);
+        }
+
+        .fragment-card.neutral-role {
+            border-color: #f0cfa0 !important;
+            background: #fffaf3 !important;
+            color: var(--text-dark);
+            opacity: 1;
+            box-shadow: 0 6px 14px rgba(249, 176, 94, 0.15);
+        }
+
+        .fragment-card.distractor {
+            opacity: 0.55;
+            border-style: dashed;
+        }
+
+        .fragment-card:active {
+            transform: scale(0.97);
+        }
+
+        .fragment-card.selected {
+            box-shadow: 0 12px 25px rgba(0,0,0,0.12);
+            border-color: var(--accent-3);
+        }
+
+        .fragment-card.dragging {
+            opacity: 0.95;
+            cursor: grabbing;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+            pointer-events: none;
+            transition: none !important;
+            will-change: transform;
+        }
+
+        .board-surface {
+            border-radius: 24px;
+            padding: 20px;
+            background: var(--board-texture);
+            /* 优化webview适配 */
+            min-height: 320px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .slot {
+            border: 2px dashed var(--slot-border);
+            border-radius: 18px;
+            /* 优化webview适配 */
+            min-height: 64px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.74);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slot-label {
+            position: absolute;
+            top: 6px;
+            left: 12px;
+            font-size: 0.75rem;
+            color: rgba(0,0,0,0.5);
+            font-weight: 700;
+        }
+
+        .slot.filled {
+            border-style: solid;
+            border-color: var(--hall-color);
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.95);
+        }
+
+        .slot.hint {
+            transform: scale(1.01);
+            border-color: #fb8da0;
+            box-shadow: 0 0 0 3px rgba(251,141,160,0.2);
+        }
+
+        .slot-ready {
+            border-color: var(--accent-3);
+        }
+
+        .board-guide {
+            font-size: 0.95rem;
+            color: var(--text-soft);
+            margin-bottom: 6px;
+        }
+
+        .translation-tag {
+            margin-top: 10px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            background: rgba(0,0,0,0.05);
+            color: var(--text-dark);
+            font-weight: 600;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: var(--transition);
+        }
+
+        .translation-tag.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .action-row {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .action-row button {
+            border: none;
+            border-radius: 14px;
+            padding: 12px 18px;
+            background: rgba(0,0,0,0.08);
+            cursor: pointer;
+            font-weight: 700;
+            transition: var(--transition);
+        }
+
+        button.primary {
+            background: linear-gradient(120deg, #ff9966, #ff5e62);
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            padding: 12px 18px;
+            font-weight: 700;
+            box-shadow: var(--shadow-button);
+        }
+
+        .action-row button.primary {
+            background: linear-gradient(120deg, #ff9966, #ff5e62);
+            color: #fff;
+        }
+
+        .action-row button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .feedback-strip {
+            margin-top: 16px;
+            padding: 14px 18px;
+            border-radius: 18px;
+            background: rgba(0,0,0,0.04);
+            font-weight: 600;
+            color: var(--text-soft);
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,12,23,0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 90;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-card {
+            background: #fff;
+            border-radius: 24px;
+            padding: 24px;
+            max-width: 520px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-card button.close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            border: none;
+            background: rgba(0,0,0,0.04);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .journey-modal-card {
+            max-width: 960px;
+        }
+
+        .certificate {
+            text-align: center;
+        }
+
+        .certificate h3 {
+            margin-bottom: 6px;
+        }
+
+        .achievement-list {
+            list-style: none;
+            padding: 0;
+            margin: 12px 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .achievement-list li {
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .achievement-list li.unlocked {
+            background: rgba(109,220,207,0.18);
+            border: 1px solid rgba(109,220,207,0.5);
+        }
+
+        .mobile-tip {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: rgba(0,0,0,0.6);
+        }
+
+        .shake {
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        @media (max-width: 640px) {
+            /* 基础优化 */
+            body {
+                padding: 8px 10px;
+                min-height: 100vh;
+                /* 允许页面整体滚动 */
+            }
+            
+            .app-shell {
+                min-height: calc(100vh - 16px);
+                /* 移除最大高度限制，允许内容超出屏幕 */
+            }
+            
+            /* 头部优化 */
+            .hero {
+                margin-bottom: 10px;
+            }
+            
+            .hero-badge {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .hero h1 {
+                font-size: 1.5rem;
+                margin: 6px 0 4px;
+            }
+            
+            .hero p {
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            
+            /* 面板优化 */
+            .panel {
+                padding: 16px;
+                margin-bottom: 10px;
+                /* 移除高度限制，允许面板内容自然展开 */
+            }
+            
+            /* 按钮优化 */
+            .primary-actions button {
+                min-width: 120px;
+                flex: 1 1 100%;
+                padding: 12px 16px;
+                font-size: 0.9rem;
+            }
+            
+            /* 游戏舞台优化 - 单列布局 */
+            .game-stage {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                min-height: auto;
+                /* 移除高度限制，让游戏区域可以根据内容自然延伸 */
+            }
+            
+            /* 碎片区优化 */
+            .pieces-panel, .board-panel {
+                min-height: 200px;
+                padding: 12px;
+                border-radius: 18px;
+            }
+            
+            .pieces-panel {
+                min-height: 200px;
+                margin-bottom: 8px;
+                /* 保留最小高度但移除最大高度限制 */
+            }
+            
+            .pieces-list {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                max-height: 160px;
+                overflow-y: auto;
+            }
+            
+            .fragment-card {
+                padding: 10px 8px;
+                font-size: 0.9rem;
+                min-height: 50px;
+                border-radius: 12px;
+            }
+            
+            /* 拼合区优化 */
+            .board-panel {
+                min-height: 280px;
+                flex: 1;
+            }
+            
+            .board-surface {
+                min-height: 240px;
+                padding: 14px;
+                gap: 10px;
+                border-radius: 16px;
+            }
+            
+            .slot {
+                min-height: 56px;
+                padding: 10px;
+                border-radius: 14px;
+            }
+            
+            .slot-label {
+                font-size: 0.7rem;
+                top: 4px;
+                left: 8px;
+            }
+            
+            /* 操作栏优化 */
+            .action-row {
+                gap: 8px;
+                margin-top: 12px;
+            }
+            
+            .action-row button {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+            
+            /* 反馈条优化 */
+            .feedback-strip {
+                margin-top: 12px;
+                padding: 10px 14px;
+                font-size: 0.85rem;
+            }
+            
+            /* 控制台模态框优化 */
+            .journey-modal-card {
+                max-height: 95vh;
+                padding: 16px;
+            }
+            
+            .journey-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            /* 伙伴面板优化 */
+            .buddy-avatar {
+                width: 40px;
+                height: 40px;
+                font-size: 1.4rem;
+            }
+            
+            .buddy-name {
+                font-size: 0.9rem;
+            }
+            
+            .buddy-message {
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="hero">
+            <div class="hero-badge">🏛️ 语法博物馆 · 文物修复任务</div>
+            <h1>句子拼图板 · Grammar Puzzle Gallery</h1>
+            <p>在“语法展厅”里，每个句子都化为拼图碎片。选择一位博物馆小助手，与他一起修复五个句子文物，掌握主谓宾、状语及从句结构，让语法学习变成沉浸式探险。</p>
+        </header>
+
+        <main>
+            <section id="gatewayScreen" class="panel hero-board">
+                <div class="hero-content">
+                    <div class="hero-primary">
+                        <p class="hero-eyebrow">语法博物馆 · 文物修复</p>
+                        <h2>精选助手 + 展厅 = <br> 量身定制的句子拼图</h2>
+                        <p class="hero-descriptor">点击“挑选冒险”即可打开控制台，选择喜欢的语法助手与主题展厅；或者立即体验“快速修复”进入推荐组合。</p>
+                        <div class="hero-actions">
+                            <button id="openConsoleBtn" class="primary">挑选冒险</button>
+                            <button id="quickLaunchBtn" class="quick-fix-btn">⚡ 快速修复</button>
+                        </div>
+                    </div>
+                    <div class="hero-highlight">
+                        <div class="highlight-card">
+                            <h4>今日推荐助手</h4>
+                            <p>考古学家 Ava · 沙盘洞察</p>
+                        </div>
+                        <div class="highlight-card">
+                            <h4>推荐展厅</h4>
+                            <p>埃及展厅 · 主谓宾</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-badges">
+                    <span class="badge-chip">🌟 3 种语法难度</span>
+                    <span class="badge-chip">🧭 助手技能相伴</span>
+                    <span class="badge-chip">🏛️ 随时查看展厅地图</span>
+                </div>
+                <div class="hall-overview">
+                    <h4>展厅地图速览</h4>
+                    <ul>
+                        <li>基础厅：磁吸提示明显，能看见主语/谓语/宾语标识。</li>
+                        <li>进阶厅：碎片统一色调，仅在底板上标注 ①②③ 序号。</li>
+                        <li>挑战厅：无辅助提示，完全依赖 if/when/that 等语法逻辑。</li>
+                    </ul>
+                </div>
+            </section>
+
+            <div id="journeyModal" class="modal hidden">
+                <div class="modal-card journey-modal-card">
+                    <button class="close" data-close="journeyModal">×</button>
+                    <div class="journey-panel">
+                        <div class="journey-stepper">
+                            <span class="journey-step active">① 选择语法助手</span>
+                            <span class="journey-step active">② 选定展厅</span>
+                            <span class="journey-step">③ 进入展厅</span>
+                        </div>
+                        <div class="journey-grid">
+                            <div class="journey-card">
+                        <div class="card-headline">
+                            <h3>语法助手</h3>
+                            <small>每位助手提供特殊技能，影响提示方式。</small>
+                        </div>
+                        <div id="characterList" class="card-grid compact-grid"></div>
+                    </div>
+                    <div class="journey-card">
+                        <div class="card-headline">
+                            <h3>展厅与句型</h3>
+                            <small>难度、故事及奖励一目了然。</small>
+                        </div>
+                        <div id="hallGrid" class="card-grid compact-grid"></div>
+                    </div>
+                    <div class="journey-card cta">
+                        <div class="card-headline">
+                            <h3>准备出发</h3>
+                            <small id="journeyTip" class="journey-tip">先选助手与展厅，按钮才会点亮。</small>
+                        </div>
+                        <div id="hallPreview" class="journey-preview">
+                            <strong>选择助手 + 展厅</strong><br>
+                            推荐：考古学家 Ava + 埃及展厅<br>
+                            完成 5 句点亮徽章。
+                        </div>
+                        <button id="journeyStartBtn" class="primary" disabled>进入展厅</button>
+                        <div class="cta-links">
+                            <button id="hallMapBtn" class="secondary">🗺️ 展厅地图</button>
+                            <button id="achievementBtn" class="achievement-btn">🏆 我的成就</button>
+                        </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section id="gameScreen" class="panel hidden">
+                <div class="game-hud">
+                    <div class="hud-block">
+                        <strong id="hallLabel">展厅信息</strong>
+                        <div id="difficultyChip" class="hall-chip" style="display:inline-block;margin-top:6px;">难度</div>
+                        <div class="progress-bar">
+                            <span id="progressBar"></span>
+                        </div>
+                        <div id="progressText" class="mobile-tip">文物 0 / 5</div>
+                    </div>
+                    <div class="hud-block buddy-panel">
+                        <div id="buddyAvatar" class="buddy-avatar">🙂</div>
+                        <div class="buddy-text">
+                            <p id="buddyName" class="buddy-name">语法助手</p>
+                            <p id="buddyMessage" class="buddy-message">选择助手即可开始修复。</p>
+                            <p id="buddyAbility" class="buddy-note">尚未激活技能。</p>
+                        </div>
+                    </div>
+                    <div class="hud-block">
+                        <strong>操作提示</strong>
+                        <p class="mobile-tip">所有设备均可直接拖动碎片到目标槽位，释放即可完成放置。</p>
+                    </div>
+                </div>
+
+                <div class="board-guide" id="boardGuide">按照提示顺序放置碎片。</div>
+
+                <div class="game-stage">
+                    <div class="pieces-panel">
+                        <h3>碎片区</h3>
+                        <p id="fragmentLegend" class="fragment-legend hidden"></p>
+                        <div id="piecesZone" class="pieces-list"></div>
+                    </div>
+                    <div class="board-panel">
+                        <h3>拼合区</h3>
+                        <div id="boardSlots" class="board-surface"></div>
+                        <div id="translationBadge" class="translation-tag">中文翻译</div>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button id="hintBtn">请求提示 🔍</button>
+                    <button id="resetSentenceBtn">重新洗牌</button>
+                    <button id="nextPuzzleBtn" class="primary" disabled>下一件文物</button>
+                </div>
+
+                <div id="feedbackStrip" class="feedback-strip">拖动碎片，让句子重新发光。</div>
+            </section>
+        </main>
+    </div>
+
+    <div id="levelCompleteModal" class="modal hidden">
+        <div class="modal-card certificate">
+            <button class="close" data-close="levelCompleteModal">×</button>
+            <h3>展厅修复完成！</h3>
+            <p id="certificateText">恭喜点亮展厅。</p>
+            <div class="action-row" style="justify-content:center;">
+                <button id="backToMapBtn" class="primary">返回展厅地图</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="infoModal" class="modal hidden">
+        <div class="modal-card">
+            <button class="close" data-close="infoModal">×</button>
+            <div id="infoModalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            // 全局数据变量
+            let characters = [];
+            let levels = [];
+            
+            // 加载数据函数
+            function loadGameData() {
+                try {
+                    // 直接从全局变量获取数据
+                    characters = window.__gameCharacters__ || [];
+                    levels = window.__gameLevels__ || [];
+                    
+                    console.log('游戏数据加载成功！', {
+                        charactersCount: characters.length,
+                        levelsCount: levels.length,
+                        source: '全局变量'
+                    });
+                    
+                    // 数据加载完成后初始化游戏
+                    initializeGame();
+                    
+                } catch (error) {
+                    console.error('加载游戏数据时出错:', error);
+                    // 显示加载错误提示
+                    const appShell = document.querySelector('.app-shell');
+                    if (appShell) {
+                        appShell.innerHTML = `
+                            <div style="text-align: center; padding: 40px;">
+                                <h2>数据加载失败</h2>
+                                <p>无法加载游戏数据，请刷新页面重试。</p>
+                                <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px;">刷新页面</button>
+                            </div>
+                        `;
+                    }
+                }
+            }
+            
+            // 原有的游戏初始化逻辑将移到这里
+            function initializeGame() {
+                // 现在levels和characters数据已经从外部JSON文件加载
+                console.log('初始化游戏，使用外部数据:', { charactersCount: characters.length, levelsCount: levels.length });
+                
+                // 确保所有原有的游戏逻辑都在initializeGame函数内部
+            const gatewayScreen = document.getElementById('gatewayScreen');
+            const gameScreen = document.getElementById('gameScreen');
+            const journeyModal = document.getElementById('journeyModal');
+            const characterList = document.getElementById('characterList');
+            const hallGrid = document.getElementById('hallGrid');
+            const buddyAvatar = document.getElementById('buddyAvatar');
+            const buddyName = document.getElementById('buddyName');
+            const buddyMessage = document.getElementById('buddyMessage');
+            const buddyAbility = document.getElementById('buddyAbility');
+            const hallLabel = document.getElementById('hallLabel');
+            const difficultyChip = document.getElementById('difficultyChip');
+            const boardGuide = document.getElementById('boardGuide');
+            const piecesZone = document.getElementById('piecesZone');
+            const fragmentLegend = document.getElementById('fragmentLegend');
+            const boardSlots = document.getElementById('boardSlots');
+            const translationBadge = document.getElementById('translationBadge');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const hintBtn = document.getElementById('hintBtn');
+            const resetBtn = document.getElementById('resetSentenceBtn');
+            const nextBtn = document.getElementById('nextPuzzleBtn');
+            const feedbackStrip = document.getElementById('feedbackStrip');
+            const openConsoleBtn = document.getElementById('openConsoleBtn');
+            const journeyStartBtn = document.getElementById('journeyStartBtn');
+            const quickLaunchBtn = document.getElementById('quickLaunchBtn');
+            const hallPreview = document.getElementById('hallPreview');
+            const journeyTip = document.getElementById('journeyTip');
+            const infoModal = document.getElementById('infoModal');
+            const infoModalBody = document.getElementById('infoModalBody');
+            const levelModal = document.getElementById('levelCompleteModal');
+            const certificateText = document.getElementById('certificateText');
+            const backToMapBtn = document.getElementById('backToMapBtn');
+
+            const STORAGE_KEY = 'sentencePuzzleMuseumProgress_v1';
+            let userProgress = loadProgress();
+            let activeBuddy = null;
+            let selectedCharacterId = null;
+            let currentLevel = null;
+            let currentSentenceIndex = 0;
+            let levelSentences = [];
+            let activeSentence = null;
+            let selectedPiece = null;
+            let levelStats = null;
+            let sentenceStartTime = null;
+            let buddyPerks = {
+                autoHints: 0,
+                sequenceGuide: false,
+                storyPeek: false
+            };
+            let translationPeekTimer = null;
+            let translationLocked = false;
+            let selectedHallId = null;
+            let dragPiece = null;
+            let dragHoverSlot = null;
+            let dragOriginalParent = null;
+            let dragNextSibling = null;
+            let dragPointerId = null;
+            const dragOffset = { x: 0, y: 0 };
+            let dragPlaceholder = null;
+            let dragRaf = null;
+            let dragPos = { x: 0, y: 0 };
+
+            function loadProgress() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) {
+                        return { completedLevels: {}, achievements: {} };
+                    }
+                    return JSON.parse(raw);
+                } catch (err) {
+                    return { completedLevels: {}, achievements: {} };
+                }
+            }
+
+            function saveProgress() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(userProgress));
+                } catch (err) {
+                    console.warn('无法保存进度', err);
+                }
+            }
+
+            function showScreen(screen) {
+                gatewayScreen.classList.add('hidden');
+                gameScreen.classList.add('hidden');
+                screen.classList.remove('hidden');
+            }
+
+            function renderCharacterCards() {
+                characterList.innerHTML = '';
+                characters.forEach((character) => {
+                    const card = document.createElement('button');
+                    card.className = 'character-card';
+                    card.type = 'button';
+                    card.dataset.characterId = character.id;
+                    card.innerHTML = `
+                        <div class="character-emoji">${character.emoji}</div>
+                        <div class="character-role">${character.title} ${character.name}</div>
+                        <div class="ability-pill">✨ ${character.perk.name}</div>
+                        <p class="character-desc">${character.description}</p>
+                        <p class="perk-desc">${character.perk.summary}</p>
+                    `;
+                    card.addEventListener('click', () => setActiveCharacter(character.id));
+                    characterList.appendChild(card);
+                });
+            }
+
+            function setActiveCharacter(characterId) {
+                const character = characters.find((char) => char.id === characterId);
+                if (!character) return;
+                selectedCharacterId = character.id;
+                activeBuddy = character;
+                document.querySelectorAll('.character-card').forEach((btn) => btn.classList.remove('selected'));
+                const selectedCard = characterList.querySelector(`[data-character-id="${characterId}"]`);
+                if (selectedCard) {
+                    selectedCard.classList.add('selected');
+                }
+                buddyAvatar.textContent = character.emoji;
+                buddyName.textContent = `${character.name} · ${character.title}`;
+                buddyAbility.textContent = `技能：${character.perk.summary}`;
+                showBuddyMessage('welcome');
+                updateLaunchState();
+            }
+            function renderHallCards() {
+                hallGrid.innerHTML = '';
+                levels.forEach((level) => {
+                    const progress = userProgress.completedLevels[level.id];
+                    const statusText = progress ? '已点亮' : '待修复';
+                    const card = document.createElement('button');
+                    card.className = 'hall-card';
+                    card.type = 'button';
+                    if (level.theme?.cardBackground) {
+                        card.style.background = level.theme.cardBackground;
+                    }
+                    if (level.theme?.color) {
+                        card.style.borderColor = `${level.theme.color}55`;
+                    }
+                     card.dataset.id = level.id;
+                    // 处理grammarFocus可能是字符串或数组的情况
+                    const grammarFocusList = typeof level.grammarFocus === 'string' ? 
+                        [level.grammarFocus] : (level.grammarFocus || []);
+                    const tags = grammarFocusList.slice(0, 3).map((tag) => `<li>${tag}</li>`).join('');
+                    card.innerHTML = `
+                        <div class="hall-crest">
+                            <div class="hall-icon">${level.icon || '🏛️'}</div>
+                            <div>
+                                <strong>${level.hall}</strong>
+                                <p class="hall-relic">${level.artifact || '主题展厅'}</p>
+                                <span class="badge-chip" style="padding:4px 8px;margin-top:6px;display:inline-block;">${level.difficultyLabel}</span>
+                            </div>
+                        </div>
+                        <p class="hall-story">${level.story || ''}</p>
+                        <ul class="hall-tags">${tags}</ul>
+                        <div class="hall-progress">${statusText}</div>
+                    `;
+                    if (selectedHallId === level.id) {
+                        card.classList.add('selected');
+                    }
+                    card.addEventListener('click', () => selectHall(level.id));
+                    hallGrid.appendChild(card);
+                });
+                if (selectedHallId) {
+                    const selectedLevel = levels.find((lvl) => lvl.id === selectedHallId);
+                    if (selectedLevel) {
+                        updateHallPreview(selectedLevel);
+                    }
+                }
+                updateLaunchState();
+            }
+
+            function selectHall(levelId) {
+                const level = levels.find((lvl) => lvl.id === levelId);
+                if (!level) return;
+                selectedHallId = levelId;
+                document.querySelectorAll('.hall-card').forEach((card) => card.classList.remove('selected'));
+                const selectedCard = hallGrid.querySelector(`[data-id="${levelId}"]`);
+                if (selectedCard) selectedCard.classList.add('selected');
+                updateHallPreview(level);
+                updateLaunchState();
+            }
+
+            function updateHallPreview(level) {
+                hallPreview.innerHTML = `
+                    <strong>${level.hall}</strong><br>
+                    ${level.story || ''}<br>
+                    <span style="display:inline-block;margin-top:6px;font-size:0.85rem;color:#5c2b3c;">奖励：${level.difficultyLabel} · 完成 5 句点亮展柜</span>
+                `;
+            }
+
+            function updateLaunchState() {
+                const ready = Boolean(selectedCharacterId && selectedHallId);
+                journeyStartBtn.disabled = !ready;
+                if (ready) {
+                    const hall = levels.find((lvl) => lvl.id === selectedHallId);
+                    journeyTip.textContent = hall ? `准备前往 ${hall.hall}，点击上方按钮立即出发。` : '立即出发吧。';
+                } else {
+                    journeyTip.textContent = '先选助手与展厅，按钮才会点亮。';
+                }
+            }
+
+            function startLevel(levelId) {
+                currentLevel = levels.find((lvl) => lvl.id === levelId);
+                if (!currentLevel) return;
+                // 每次开始关卡随机打乱题目顺序
+                levelSentences = shuffle(currentLevel.sentences);
+                document.documentElement.style.setProperty('--board-texture', currentLevel.theme.board);
+                document.documentElement.style.setProperty('--hall-color', currentLevel.theme.color);
+                hallLabel.textContent = currentLevel.hall;
+                difficultyChip.textContent = currentLevel.difficultyLabel;
+                boardGuide.textContent = currentLevel.guide;
+                currentSentenceIndex = 0;
+                levelStats = {
+                    mistakes: 0,
+                    flawless: true,
+                    startedAt: performance.now()
+                };
+                nextBtn.disabled = true;
+                hideModal(journeyModal);
+                showScreen(gameScreen);
+                showBuddyMessage('welcome');
+                updateFragmentLegend();
+                loadSentence();
+            }
+
+            function shuffle(array) {
+                const arr = [...array];
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            function loadSentence() {
+                translationBadge.classList.remove('visible');
+                translationLocked = false;
+                if (translationPeekTimer) {
+                    clearTimeout(translationPeekTimer);
+                    translationPeekTimer = null;
+                }
+                nextBtn.disabled = true;
+                selectedPiece = null;
+                activeSentence = levelSentences[currentSentenceIndex];
+                sentenceStartTime = performance.now();
+                progressText.textContent = `文物 ${currentSentenceIndex + 1} / ${levelSentences.length}`;
+                const progressPercent = ((currentSentenceIndex) / levelSentences.length) * 100;
+                progressBar.style.width = `${progressPercent}%`;
+                configureBuddyPerks();
+                renderPieces();
+                renderSlots();
+                if (buddyPerks.sequenceGuide) {
+                    guideNextFragment();
+                }
+                const hallCue = currentLevel.difficulty === 'expert'
+                    ? '先安排主句，再衔接从句碎片。'
+                    : '拖动碎片，让句子重获顺序。';
+                feedbackStrip.textContent = hallCue;
+            }
+
+            function configureBuddyPerks() {
+                buddyPerks = {
+                    autoHints: 0,
+                    sequenceGuide: false,
+                    storyPeek: false
+                };
+                if (!activeBuddy?.perk) return;
+                if (activeBuddy.perk.effect === 'autoHint') {
+                    buddyPerks.autoHints = 1;
+                } else if (activeBuddy.perk.effect === 'sequenceGuide') {
+                    buddyPerks.sequenceGuide = true;
+                } else if (activeBuddy.perk.effect === 'storyPeek') {
+                    buddyPerks.storyPeek = true;
+                }
+            }
+
+            function updateFragmentLegend() {
+                if (!fragmentLegend) return;
+                if (!currentLevel) {
+                    fragmentLegend.classList.add('hidden');
+                    return;
+                }
+                if (currentLevel.difficulty === 'expert') {
+                    fragmentLegend.textContent = '蓝紫色碎片 = 从句/引导词，请先完成主句再衔接这些碎片。';
+                    fragmentLegend.classList.remove('hidden');
+                } else if (currentLevel.difficulty === 'advanced') {
+                    fragmentLegend.textContent = '统一色调碎片，请按照底板上的①②③提示顺序放置。';
+                    fragmentLegend.classList.remove('hidden');
+                } else {
+                    fragmentLegend.classList.add('hidden');
+                }
+            }
+
+            function guideNextFragment() {
+                if (!buddyPerks.sequenceGuide) return;
+                const nextSlot = Array.from(boardSlots.querySelectorAll('.slot')).find((slot) => !slot.classList.contains('filled'));
+                if (!nextSlot) return;
+                nextSlot.classList.add('hint');
+                setTimeout(() => nextSlot.classList.remove('hint'), 900);
+                const nextIndex = Number(nextSlot.dataset.index);
+                const role = activeSentence.fragments[nextIndex]?.role || '下一个成分';
+                const text = `逻辑提示：寻找表示“${role}”的碎片。`;
+                feedbackStrip.textContent = text;
+                showBuddyMessage('hint', text);
+            }
+
+            function startPointerDrag(event, piece) {
+                if (piece.classList.contains('locked')) return;
+                event.preventDefault();
+                
+                // 动态绑定指针移动和释放事件监听器
+                document.addEventListener('pointermove', movePointerDrag, { passive: false });
+                document.addEventListener('pointerup', endPointerDrag, { passive: false });
+                document.addEventListener('pointercancel', endPointerDrag, { passive: false });
+                
+                // 缓存拖动对象
+                selectedPiece = piece;
+                dragPiece = piece;
+                dragPointerId = event.pointerId;
+                dragOriginalParent = piece.parentElement;
+                dragNextSibling = piece.nextElementSibling;
+                
+                // 获取初始位置和偏移
+                const rect = piece.getBoundingClientRect();
+                dragOffset.x = event.clientX - rect.left;
+                dragOffset.y = event.clientY - rect.top;
+                
+                // 设置拖动状态
+                piece.classList.add('dragging');
+                piece.dataset.prevTransition = piece.style.transition;
+                piece.style.transition = 'none';
+                piece.style.willChange = 'transform';
+                piece.style.transform = 'translateZ(0)';
+                
+                // 设置基础样式，不使用GPU加速属性
+                piece.style.position = 'fixed';
+                piece.style.width = `${rect.width}px`;
+                piece.style.height = `${rect.height}px`;
+                piece.style.pointerEvents = 'none';
+                piece.style.zIndex = '1000';
+                piece.style.left = `${rect.left}px`;
+                piece.style.top = `${rect.top}px`;
+                
+                // 移动元素到body
+                dragOriginalParent.removeChild(piece);
+                document.body.appendChild(piece);
+                
+                try {
+                    piece.setPointerCapture(event.pointerId);
+                } catch (err) {
+                    // ignore
+                }
+            }
+
+            // 高性能节流函数，避免不必要的参数复制和闭包开销
+            function throttle(func, limit) {
+                let inThrottle;
+                return function() {
+                    // 直接使用arguments对象避免数组解构
+                    const args = arguments;
+                    const context = this;
+                    if (!inThrottle) {
+                        func.apply(context, args);
+                        inThrottle = true;
+                        setTimeout(() => {
+                            inThrottle = false;
+                        }, limit);
+                    }
+                };
+            }
+            
+            // 动画帧更新相关变量
+            let animationFrameId = null;
+            let lastX = 0;
+            let lastY = 0;
+            // 缓存常用DOM方法以减少属性查找开销
+            const docBody = document.body;
+            const docElement = document.documentElement;
+            
+            // 添加性能监控代码 - 可通过浏览器控制台查看优化效果
+            let lastFrameTime = 0;
+            let frameCount = 0;
+            let fpsCheckTime = 0;
+            
+            function updatePerformanceMetrics(timestamp) {
+                // 计算帧率
+                if (!lastFrameTime) {
+                    lastFrameTime = timestamp;
+                    fpsCheckTime = timestamp;
+                    return;
+                }
+                
+                frameCount++;
+                const elapsed = timestamp - fpsCheckTime;
+                
+                // 每秒输出一次帧率
+                if (elapsed >= 1000) {
+                    const fps = Math.round((frameCount * 1000) / elapsed);
+                    // 只在控制台打印，不会影响用户体验
+                    console.log(`拖动性能: ${fps} FPS`);
+                    frameCount = 0;
+                    fpsCheckTime = timestamp;
+                }
+                
+                lastFrameTime = timestamp;
+            }
+            
+            // 进一步优化的动画帧更新函数
+            function animateDragPosition() {
+                // 此函数已不再使用，拖动更新现在直接在movePointerDrag中处理
+                // 保留以避免引用错误
+            }
+            
+            // 优化的性能监控函数 - 降低监控频率，减少性能开销
+            function updatePerformanceMetrics(timestamp) {
+                // 计算帧率 - 减少计算频率
+                if (!lastFrameTime) {
+                    lastFrameTime = timestamp;
+                    fpsCheckTime = timestamp;
+                    return;
+                }
+                
+                frameCount++;
+                const elapsed = timestamp - fpsCheckTime;
+                
+                // 每2秒输出一次帧率，减少日志开销
+                if (elapsed >= 2000) {
+                    const fps = Math.round((frameCount * 1000) / elapsed);
+                    // 只在控制台打印，不会影响用户体验
+                    console.log('拖动性能: ' + fps + ' FPS');
+                    frameCount = 0;
+                    fpsCheckTime = timestamp;
+                }
+                
+                lastFrameTime = timestamp;
+            }
+            
+            // 当前拖动位置变量
+            let currentDragX = 0;
+            let currentDragY = 0;
+            
+            // 槽位检测节流版本 - 简化实现
+            const throttledSlotDetection = throttle(function(event) {
+                // 检测目标槽位
+                const clientX = event.clientX;
+                const clientY = event.clientY;
+                
+                // 临时隐藏拖动元素，避免elementFromPoint总是返回拖动元素本身
+                dragPiece.style.visibility = 'hidden';
+                
+                try {
+                    const target = document.elementFromPoint(clientX, clientY);
+                    let slot = null;
+                    
+                    if (target) {
+                        // 查找最近的槽位元素
+                        if (target.classList.contains('slot')) {
+                            slot = target;
+                        } else {
+                            slot = target.closest('.slot');
+                        }
+                        
+                        // 检查槽位是否已被填充
+                        if (slot && slot.classList.contains('filled')) {
+                            slot = null;
+                        }
+                    }
+                    
+                    // 处理槽位高亮状态变化
+                    if (dragHoverSlot !== slot) {
+                        if (dragHoverSlot) {
+                            dragHoverSlot.classList.remove('slot-ready');
+                        }
+                        
+                        dragHoverSlot = slot;
+                        
+                        if (dragHoverSlot) {
+                            dragHoverSlot.classList.add('slot-ready');
+                        }
+                    }
+                } finally {
+                    // 恢复拖动元素的可见性
+                    dragPiece.style.visibility = '';
+                }
+            }, 50); // 调整节流时间为50ms，保持流畅性
+            
+            // 初始化最后检测位置
+            let lastDetectedX = 0;
+            let lastDetectedY = 0;
+            
+            function movePointerDrag(event) {
+                if (!dragPiece || event.pointerId !== dragPointerId) return;
+                event.preventDefault();
+                
+                // 直接计算并更新DOM位置
+                const newX = event.clientX - dragOffset.x;
+                const newY = event.clientY - dragOffset.y;
+                
+                // 使用left和top属性进行定位，更简单直接
+                dragPiece.style.left = `${newX}px`;
+                dragPiece.style.top = `${newY}px`;
+                
+                // 节流调用槽位检测
+                throttledSlotDetection(event);
+            }
+
+            function resetDragPiece() {
+                if (!dragPiece) return;
+                
+                // 使用classList移除拖动类
+                dragPiece.classList.remove('dragging');
+                
+                // 重置样式属性
+                dragPiece.style.position = '';
+                dragPiece.style.left = '';
+                dragPiece.style.top = '';
+                dragPiece.style.width = '';
+                dragPiece.style.height = '';
+                dragPiece.style.pointerEvents = '';
+                dragPiece.style.zIndex = '';
+                dragPiece.style.transition = dragPiece.dataset.prevTransition || '';
+                dragPiece.style.willChange = '';
+                dragPiece.style.transform = '';
+                dragPiece.dataset.prevTransition = '';
+            }
+
+            function returnDragPieceHome() {
+                if (!dragPiece || !dragOriginalParent) return;
+                // 如果元素仍在document.body中，则移除它
+                if (dragPiece.parentElement === document.body) {
+                    document.body.removeChild(dragPiece);
+                }
+                
+                if (dragNextSibling && dragNextSibling.parentElement === dragOriginalParent) {
+                    dragOriginalParent.insertBefore(dragPiece, dragNextSibling);
+                } else {
+                    dragOriginalParent.appendChild(dragPiece);
+                }
+            }
+
+            function endPointerDrag(event) {
+                if (!dragPiece || event.pointerId !== dragPointerId) return;
+                event.preventDefault();
+                
+                try {
+                    dragPiece.releasePointerCapture(event.pointerId);
+                } catch (err) {
+                    // ignore
+                }
+                
+                // 保存当前碎片
+                const currentPiece = dragPiece;
+                let placedInSlot = false;
+                
+                if (dragHoverSlot) {
+                    attemptPlacement(dragHoverSlot, dragPiece);
+                    // 检查是否成功放置到槽位中
+                    placedInSlot = currentPiece.parentElement === dragHoverSlot;
+                    dragHoverSlot.classList.remove('slot-ready');
+                }
+                
+                // 无论是否有dragHoverSlot，只要放置失败，就返回到碎片区
+                if (!placedInSlot) {
+                    returnDragPieceHome();
+                    resetDragPiece();
+                } else {
+                    // 如果已放置，重置样式
+                    currentPiece.classList.remove('dragging');
+                    currentPiece.style.position = '';
+                    currentPiece.style.left = '';
+                    currentPiece.style.top = '';
+                    currentPiece.style.height = '';
+                    currentPiece.style.pointerEvents = '';
+                    currentPiece.style.zIndex = '';
+                    currentPiece.style.transition = currentPiece.dataset.prevTransition || '';
+                    currentPiece.style.willChange = '';
+                    currentPiece.style.transform = '';
+                    currentPiece.dataset.prevTransition = '';
+                }
+                
+                if (dragOriginalParent && !dragPiece?.parentElement) {
+                    dragOriginalParent.appendChild(dragPiece);
+                }
+                
+                // 移除事件监听器
+                document.removeEventListener('pointermove', movePointerDrag);
+                document.removeEventListener('pointerup', endPointerDrag);
+                document.removeEventListener('pointercancel', endPointerDrag);
+                
+                // 重置拖动状态
+                dragPiece = null;
+                dragHoverSlot = null;
+                dragOriginalParent = null;
+                dragNextSibling = null;
+                dragPointerId = null;
+                selectedPiece = null;
+            }
+            
+function renderPieces() {
+                piecesZone.innerHTML = '';
+                const correctPieces = activeSentence.fragments.map((fragment, index) => ({
+                    ...fragment,
+                    index
+                }));
+                const pool = shuffle([...correctPieces]);
+                pool.forEach((pieceData, idx) => {
+                    const piece = document.createElement('div');
+                    piece.className = 'fragment-card';
+                    piece.textContent = pieceData.text;
+                    piece.dataset.index = pieceData.index;
+                    piece.dataset.role = pieceData.role || '';
+                    piece.dataset.pieceId = `piece-${Date.now()}-${idx}`;
+                    if (currentLevel?.difficulty === 'advanced') {
+                        piece.classList.add('neutral-role');
+                    }
+                    piece.draggable = false;
+                    piece.addEventListener('pointerdown', (event) => {
+                        startPointerDrag(event, piece);
+                    });
+                    piece.addEventListener('click', () => {
+                        if (piece.classList.contains('locked')) return;
+                        selectedPiece = piece;
+                        document.querySelectorAll('.fragment-card').forEach((card) => card.classList.remove('selected'));
+                        piece.classList.add('selected');
+                    });
+                    piecesZone.appendChild(piece);
+                });
+            }
+
+            function renderSlots() {
+                boardSlots.innerHTML = '';
+                activeSentence.fragments.forEach((fragment, index) => {
+                    const slot = document.createElement('div');
+                    slot.className = 'slot';
+                    slot.dataset.index = index;
+                    if (currentLevel.difficulty === 'entry') {
+                        slot.innerHTML = `<span class="slot-label">${fragment.role}</span>`;
+                    } else if (currentLevel.difficulty === 'advanced') {
+                        slot.innerHTML = `<span class="slot-label">${String.fromCharCode(9312 + index)}</span>`;
+                    } else {
+                        slot.innerHTML = '<span class="slot-label"></span>';
+                    }
+                    slot.addEventListener('click', () => {
+                        if (selectedPiece) {
+                            attemptPlacement(slot, selectedPiece);
+                        }
+                    });
+                    boardSlots.appendChild(slot);
+                });
+                triggerAutoHint();
+            }
+
+            function triggerAutoHint() {
+                if (!buddyPerks.autoHints) return;
+                const targetSlot = boardSlots.querySelector('.slot:not(.filled)');
+                if (!targetSlot) return;
+                targetSlot.classList.add('hint');
+                setTimeout(() => targetSlot.classList.remove('hint'), 1100);
+                const targetIndex = targetSlot.dataset.index;
+                const candidate = piecesZone.querySelector(`.fragment-card[data-index="${targetIndex}"]`);
+                if (candidate && !candidate.classList.contains('distractor')) {
+                    setTimeout(() => {
+                        attemptPlacement(targetSlot, candidate);
+                    }, 500);
+                }
+                buddyPerks.autoHints -= 1;
+                showBuddyMessage('hint', '沙盘将第一块碎片安放到位，跟上节奏吧。');
+            }
+            function attemptPlacement(slot, piece) {
+                if (slot.classList.contains('filled')) {
+                    feedbackStrip.textContent = '这个位置已经有碎片啦。';
+                    return;
+                }
+                if (piece.classList.contains('locked')) return;
+                const expectedIndex = slot.dataset.index;
+                const pieceIndex = piece.dataset.index;
+                if (pieceIndex === expectedIndex) {
+                    slot.classList.add('filled');
+                    slot.appendChild(piece);
+                    piece.classList.add('locked');
+                    piece.draggable = false;
+                    piece.classList.remove('selected');
+                    // 恢复宽度设置，使碎片占满容器
+                    piece.style.width = '100%';
+                    piece.style.cursor = 'default';
+                    const solvedAfterPlacement = boardSlots.querySelectorAll('.slot.filled').length === activeSentence.fragments.length;
+                    showBuddyMessage('correct');
+                    flashTranslation(false);
+                    feedbackStrip.textContent = '拼图对位成功，继续排列剩余碎片。';
+                    if (buddyPerks.storyPeek && !solvedAfterPlacement) {
+                        revealTranslation(false);
+                    }
+                    if (buddyPerks.sequenceGuide && !solvedAfterPlacement) {
+                        guideNextFragment();
+                    }
+                    checkSentenceCompletion();
+                } else {
+                    piece.classList.add('shake');
+                    setTimeout(() => piece.classList.remove('shake'), 350);
+                    showBuddyMessage('error');
+                    feedbackStrip.textContent = '这块碎片与轮廓不吻合，换一个试试。';
+                    levelStats.mistakes += 1;
+                    levelStats.flawless = false;
+                }
+            }
+
+            function checkSentenceCompletion() {
+                const filled = boardSlots.querySelectorAll('.slot.filled').length;
+                if (filled === activeSentence.fragments.length) {
+                    revealTranslation(true);
+                    showBuddyMessage('correct', '句子被完全点亮，看看中文释义吧！');
+                    feedbackStrip.textContent = '完整句子闪耀，点击“下一件文物”。';
+                    progressBar.style.width = `${((currentSentenceIndex + 1) / levelSentences.length) * 100}%`;
+                    nextBtn.disabled = false;
+                    if (currentSentenceIndex === levelSentences.length - 1) {
+                        nextBtn.textContent = '领取展厅证书';
+                    } else {
+                        nextBtn.textContent = '修复下一件文物';
+                    }
+                }
+            }
+
+            function flashTranslation(forceHide) {
+                if (forceHide) {
+                    translationBadge.classList.remove('visible');
+                    translationLocked = false;
+                    if (translationPeekTimer) {
+                        clearTimeout(translationPeekTimer);
+                        translationPeekTimer = null;
+                    }
+                }
+            }
+
+            function revealTranslation(permanent = false) {
+                translationBadge.textContent = `${activeSentence.translation}`;
+                translationBadge.classList.add('visible');
+                if (permanent) {
+                    translationLocked = true;
+                    if (translationPeekTimer) {
+                        clearTimeout(translationPeekTimer);
+                        translationPeekTimer = null;
+                    }
+                    return;
+                }
+                if (!translationLocked) {
+                    if (translationPeekTimer) {
+                        clearTimeout(translationPeekTimer);
+                    }
+                    translationPeekTimer = setTimeout(() => {
+                        translationBadge.classList.remove('visible');
+                        translationPeekTimer = null;
+                    }, 1800);
+                }
+            }
+
+            function showBuddyMessage(type, overrideText) {
+                if (!activeBuddy) return;
+                const bag = activeBuddy.messages[type] || [];
+                const text = overrideText || bag[Math.floor(Math.random() * bag.length)] || '继续保持节奏。';
+                buddyMessage.textContent = text;
+                buddyAvatar.style.background = `linear-gradient(135deg, ${activeBuddy.color}, rgba(255,255,255,0.85))`;
+            }
+            function showModal(modal, contentHTML) {
+                if (contentHTML) {
+                    infoModalBody.innerHTML = contentHTML;
+                }
+                modal.classList.remove('hidden');
+            }
+
+            function hideModal(modal) {
+                modal.classList.add('hidden');
+            }
+
+            function handleHint() {
+                const firstEmptySlot = Array.from(boardSlots.querySelectorAll('.slot')).find((slot) => !slot.classList.contains('filled'));
+                if (!firstEmptySlot) return;
+                firstEmptySlot.classList.add('hint');
+                setTimeout(() => firstEmptySlot.classList.remove('hint'), 900);
+                let hintText = '';
+                if (currentLevel.difficulty === 'entry') {
+                    const idx = Number(firstEmptySlot.dataset.index);
+                    const role = activeSentence.fragments[idx].role;
+                    hintText = `寻找表示“${role}”的碎片。`;
+                } else if (currentLevel.difficulty === 'advanced') {
+                    hintText = '该位置需要“动作/状态”后面的描述成分。';
+                } else {
+                    hintText = '思考一下主句与从句的衔接词，比如 if/when/that。';
+                }
+                showBuddyMessage('hint', hintText);
+                feedbackStrip.textContent = hintText;
+            }
+
+            function resetSentence() {
+                renderPieces();
+                feedbackStrip.textContent = '碎片已重新排列，尝试新的组合。';
+                flashTranslation(true);
+            }
+
+            function goNext() {
+                translationBadge.classList.remove('visible');
+                if (currentSentenceIndex === levelSentences.length - 1) {
+                    completeLevel();
+                    return;
+                }
+                currentSentenceIndex += 1;
+                loadSentence();
+            }
+
+            function completeLevel() {
+                const duration = (performance.now() - levelStats.startedAt) / 1000;
+                userProgress.completedLevels[currentLevel.id] = {
+                    finishedAt: Date.now(),
+                    duration,
+                    flawless: levelStats.flawless
+                };
+                if (!userProgress.achievements) userProgress.achievements = {};
+                if (duration / levelSentences.length < 30) {
+                    userProgress.achievements.lightning = true;
+                }
+                if (levelStats.flawless) {
+                    userProgress.achievements.flawless = true;
+                }
+                const totalCleared = Object.keys(userProgress.completedLevels).length;
+                if (totalCleared === levels.length) {
+                    userProgress.achievements.fullMuseum = true;
+                }
+                saveProgress();
+                renderHallCards();
+                certificateText.textContent = `${currentLevel.hall} 修复完成！你掌握了 ${currentLevel.difficultyLabel}。`;
+                showModal(levelModal);
+                showBuddyMessage('victory');
+                feedbackStrip.textContent = '全部文物点亮！领取证书后可挑战其他展厅。';
+            }
+            document.querySelectorAll('[data-close]').forEach((btn) => {
+                btn.addEventListener('click', (event) => {
+                    const targetId = event.currentTarget.dataset.close;
+                    const modal = document.getElementById(targetId);
+                    if (modal) hideModal(modal);
+                });
+            });
+
+            openConsoleBtn.addEventListener('click', () => {
+                showModal(journeyModal);
+            });
+
+            document.getElementById('hallMapBtn').addEventListener('click', () => {
+                const mapHTML = `
+                    <h3>展厅地图</h3>
+                    <p>博物馆共 3 个主题展厅：金色埃及（主谓宾）、朱红中国（主系表）、蓝调希腊（从句挑战）。完成任意展厅即可在“我的成就”中点亮相应徽章。</p>
+                    <ul>
+                        <li>基础厅：磁吸感明显，可看到主语/谓语/宾语标识。</li>
+                        <li>进阶厅：碎片无颜色提示，但底板标注 ①②③ 序号。</li>
+                        <li>挑战厅：无提示，仅靠语法逻辑完成拼接。</li>
+                    </ul>
+                `;
+                showModal(infoModal, mapHTML);
+            });
+
+            document.getElementById('achievementBtn').addEventListener('click', () => {
+                const achievements = [
+                    { key: 'lightning', label: '闪电修复师', desc: '平均每句 < 30 秒完成。' },
+                    { key: 'flawless', label: '零错误大师', desc: '一整个展厅无错误放置。' },
+                    { key: 'fullMuseum', label: '展厅全解锁', desc: '完成全部三大展厅。' }
+                ];
+                const listItems = achievements.map((ach) => {
+                    const unlocked = userProgress.achievements?.[ach.key];
+                    return `<li class="${unlocked ? 'unlocked' : ''}"><span>${ach.label}</span><span>${unlocked ? '✅ 已解锁' : ach.desc}</span></li>`;
+                }).join('');
+                const html = `<h3>我的成就</h3><ul class="achievement-list">${listItems}</ul>`;
+                showModal(infoModal, html);
+            });
+            journeyStartBtn.addEventListener('click', () => {
+                if (selectedCharacterId && selectedHallId) {
+                    hideModal(journeyModal);
+                    startLevel(selectedHallId);
+                } else {
+                    journeyTip.textContent = '请选择助手和展厅后再出发～';
+                }
+            });
+            quickLaunchBtn.addEventListener('click', () => {
+                if (!selectedCharacterId && characters.length) {
+                    setActiveCharacter(characters[0].id);
+                }
+                if (!selectedHallId && levels.length) {
+                    selectHall(levels[0].id);
+                }
+                if (selectedCharacterId && selectedHallId) {
+                    hideModal(journeyModal);
+                    startLevel(selectedHallId);
+                } else {
+                    showModal(journeyModal);
+                    journeyTip.textContent = '请选择助手和展厅后再出发～';
+                }
+            });
+            hintBtn.addEventListener('click', handleHint);
+            resetBtn.addEventListener('click', resetSentence);
+            nextBtn.addEventListener('click', goNext);
+            backToMapBtn.addEventListener('click', () => {
+                hideModal(levelModal);
+                hideModal(journeyModal);
+                showScreen(gatewayScreen);
+                translationBadge.classList.remove('visible');
+            });
+
+            infoModal.addEventListener('click', (event) => {
+                if (event.target === infoModal) hideModal(infoModal);
+            });
+
+            levelModal.addEventListener('click', (event) => {
+                if (event.target === levelModal) hideModal(levelModal);
+            });
+
+            journeyModal.addEventListener('click', (event) => {
+                if (event.target === journeyModal) hideModal(journeyModal);
+            });
+
+            // 注意：事件监听器现在在startPointerDrag中动态绑定，在endPointerDrag中移除
+// 这样可以减少不必要的事件处理开销，提高性能
+
+                // End event listeners optimization
+                renderCharacterCards();
+                renderHallCards();
+            }
+            
+            // 开始加载游戏数据
+            loadGameData();
+            
+        })();
+        </script>
+</body>
+</html>
+
