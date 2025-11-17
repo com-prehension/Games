@@ -156,6 +156,8 @@
         .primary-actions button.secondary {
             background: linear-gradient(120deg, #7f7fd5, #86a8e7);
             box-shadow: 0 14px 30px rgba(134,168,231,0.3);
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .journey-card .secondary {
@@ -163,6 +165,8 @@
             color: white;
             font-weight: 600;
             border: none;
+            white-space: nowrap;
+            flex-shrink: 0;
             border-radius: 12px;
             padding: 10px 18px;
             font-size: 0.95rem;
@@ -313,6 +317,8 @@
             padding: 10px 18px;
             font-size: 0.95rem;
             cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -429,6 +435,8 @@
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 18px;
             align-items: stretch;
+            min-width: 0;
+            grid-auto-flow: dense;
         }
 
         .journey-card {
@@ -478,12 +486,27 @@
 
         .cta-links {
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            justify-content: center;
+            overflow: hidden;
         }
 
         .cta-links button {
             flex: 1;
+            min-width: unset;
+            max-width: none;
+            width: 100%;
+            padding: 12px 16px;
+            white-space: normal;
+            text-overflow: unset;
+            overflow: visible;
+            justify-content: center;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            font-size: 1rem;
         }
 
         .card-grid {
@@ -1023,6 +1046,8 @@
 
         .journey-modal-card {
             max-width: 960px;
+            width: calc(100vw - 40px);
+            overflow-x: auto;
         }
 
         .certificate {
@@ -1204,6 +1229,7 @@
             .journey-modal-card {
                 max-height: 95vh;
                 padding: 16px;
+                width: calc(100vw - 20px);
             }
             
             .journey-grid {
