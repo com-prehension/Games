@@ -1783,21 +1783,25 @@
                 dragOffset.x = event.clientX - rect.left;
                 dragOffset.y = event.clientY - rect.top;
                 
-                // 设置拖动状态
-                piece.classList.add('dragging');
-                piece.dataset.prevTransition = piece.style.transition;
-                piece.style.transition = 'none';
-                piece.style.willChange = 'transform';
-                piece.style.transform = 'translateZ(0)';
-                
-                // 设置基础样式，不使用GPU加速属性
-                piece.style.position = 'fixed';
-                piece.style.width = `${rect.width}px`;
-                piece.style.height = `${rect.height}px`;
-                piece.style.pointerEvents = 'none';
-                piece.style.zIndex = '1000';
-                piece.style.left = `${rect.left}px`;
-                piece.style.top = `${rect.top}px`;
+                // 使用requestAnimationFrame确保样式更新在同一帧中完成
+                requestAnimationFrame(() => {
+                    const styles = piece.style;
+                    
+                    // 设置拖动状态
+                    piece.classList.add('dragging');
+                    piece.dataset.prevTransition = styles.transition;
+                    styles.transition = 'none';
+                    styles.willChange = 'transform';
+                    styles.transform = `translate(${rect.left}px, ${rect.top}px)`; // 直接使用transform
+                    
+                    // 设置基础样式，使用GPU加速
+                    styles.position = 'fixed';
+                    styles.width = `${rect.width}px`;
+                    styles.height = `${rect.height}px`;
+                    styles.pointerEvents = 'none';
+                    styles.zIndex = '1000';
+                    // 不再需要left和top，因为使用transform
+                });
                 
                 // 移动元素到body
                 dragOriginalParent.removeChild(piece);
@@ -1897,50 +1901,49 @@
             let currentDragX = 0;
             let currentDragY = 0;
             
-            // 槽位检测节流版本 - 简化实现
+            // 槽位检测节流版本 - 优化实现，避免闪烁
             const throttledSlotDetection = throttle(function(event) {
                 // 检测目标槽位
                 const clientX = event.clientX;
                 const clientY = event.clientY;
                 
-                // 临时隐藏拖动元素，避免elementFromPoint总是返回拖动元素本身
-                dragPiece.style.visibility = 'hidden';
+                // 不隐藏拖动元素，而是使用document.elementsFromPoint获取多个元素并过滤
+                const elements = Array.from(document.elementsFromPoint(clientX, clientY));
+                let slot = null;
                 
-                try {
-                    const target = document.elementFromPoint(clientX, clientY);
-                    let slot = null;
-                    
-                    if (target) {
-                        // 查找最近的槽位元素
-                        if (target.classList.contains('slot')) {
-                            slot = target;
-                        } else {
-                            slot = target.closest('.slot');
-                        }
-                        
-                        // 检查槽位是否已被填充
-                        if (slot && slot.classList.contains('filled')) {
-                            slot = null;
-                        }
+                // 查找第一个不是拖动元素的槽位
+                for (const element of elements) {
+                    if (element === dragPiece || element.classList.contains('dragging')) {
+                        continue;
                     }
                     
-                    // 处理槽位高亮状态变化
-                    if (dragHoverSlot !== slot) {
-                        if (dragHoverSlot) {
-                            dragHoverSlot.classList.remove('slot-ready');
-                        }
-                        
-                        dragHoverSlot = slot;
-                        
-                        if (dragHoverSlot) {
-                            dragHoverSlot.classList.add('slot-ready');
-                        }
+                    if (element.classList.contains('slot')) {
+                        slot = element;
+                    } else {
+                        slot = element.closest('.slot');
                     }
-                } finally {
-                    // 恢复拖动元素的可见性
-                    dragPiece.style.visibility = '';
+                    
+                    if (slot) break;
                 }
-            }, 50); // 调整节流时间为50ms，保持流畅性
+                
+                // 检查槽位是否已被填充
+                if (slot && slot.classList.contains('filled')) {
+                    slot = null;
+                }
+                
+                // 处理槽位高亮状态变化
+                if (dragHoverSlot !== slot) {
+                    if (dragHoverSlot) {
+                        dragHoverSlot.classList.remove('slot-ready');
+                    }
+                    
+                    dragHoverSlot = slot;
+                    
+                    if (dragHoverSlot) {
+                        dragHoverSlot.classList.add('slot-ready');
+                    }
+                }
+            }, 100); // 增加节流时间，减少不必要的检测
             
             // 初始化最后检测位置
             let lastDetectedX = 0;
@@ -1950,13 +1953,12 @@
                 if (!dragPiece || event.pointerId !== dragPointerId) return;
                 event.preventDefault();
                 
-                // 直接计算并更新DOM位置
+                // 计算新位置
                 const newX = event.clientX - dragOffset.x;
                 const newY = event.clientY - dragOffset.y;
                 
-                // 使用left和top属性进行定位，更简单直接
-                dragPiece.style.left = `${newX}px`;
-                dragPiece.style.top = `${newY}px`;
+                // 使用transform属性代替left/top，利用硬件加速，减少重绘
+                dragPiece.style.transform = `translate(${newX}px, ${newY}px)`;
                 
                 // 节流调用槽位检测
                 throttledSlotDetection(event);
@@ -1965,20 +1967,23 @@
             function resetDragPiece() {
                 if (!dragPiece) return;
                 
+                // 批量样式重置，减少重排
+                const styles = dragPiece.style;
+                
                 // 使用classList移除拖动类
                 dragPiece.classList.remove('dragging');
                 
                 // 重置样式属性
-                dragPiece.style.position = '';
-                dragPiece.style.left = '';
-                dragPiece.style.top = '';
-                dragPiece.style.width = '';
-                dragPiece.style.height = '';
-                dragPiece.style.pointerEvents = '';
-                dragPiece.style.zIndex = '';
-                dragPiece.style.transition = dragPiece.dataset.prevTransition || '';
-                dragPiece.style.willChange = '';
-                dragPiece.style.transform = '';
+                styles.position = '';
+                styles.left = '';
+                styles.top = '';
+                styles.width = '';
+                styles.height = '';
+                styles.pointerEvents = '';
+                styles.zIndex = '';
+                styles.transition = dragPiece.dataset.prevTransition || '';
+                styles.willChange = '';
+                styles.transform = '';
                 dragPiece.dataset.prevTransition = '';
             }
 
